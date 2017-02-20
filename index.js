@@ -15,13 +15,14 @@
 
     fs = require('fs-extra');
     path = require('path');
+    deasync = require('deasync') ;
     ExifImage = require('exif').ExifImage;
 
 	stringStartsWith = function (string, prefix) {
 		return string.slice(0, prefix.length) == prefix;
 	}
 
-    pictureSorter = function (src, dst, opt) {        
+    pictureSorter = function (src, dst, opt) {
         log(opt, "Reading top folder: " + src);
 		isDryRun = opt['dryrun'];
         if (fs.statSync(src)) {
@@ -92,52 +93,60 @@
     }
 
     processFileWithExif = function (fullSrcFileName, srcFileName, fileStats, fileExt, destFolder, opt) {
-        return new ExifImage({
-            image: fullSrcFileName
-        }, function (err, data) {
-            var date, dateArr, newFileName, folder, imageDate, filepath, ref, ref1, make, model, obj;
-            exifFileCounter--;
-            if (!err) {
-                imageDate = ((ref = data.exif) != null ? ref.DateTimeOriginal : void 0) || ((ref1 = data.image) != null ? ref1.ModifyDate : void 0);
-                if (opt['report'] || opt['j']) {
-                    filepath = fullSrcFileName.substring(0, fullSrcFileName.length - srcFileName.length);
-                    ref1 = data.image;
-                    make = ((ref1 != null && ref1.Make != null) ? (NAME_SEPA + ref1.Make) : UNKNOWN);
-                    model = ((ref1 != null && ref1.Model != null) ? (NAME_SEPA + ref1.Model) : UNKNOWN);
-                    //log(opt, "pushing a picture: " + srcFileName + " model: " + model);
-                    obj = {name:srcFileName, path:filepath, ext:fileExt.toUpperCase(), make:make.trim(), model:model.trim(), size:fileStats["size"], date:imageDate};
-                    resultArray.push(obj);
-                    //console.log(resultArray);
+      var done = false;
+      var err;
+      var data;
+      new ExifImage({
+          image: fullSrcFileName
+      }, function(asyncErr,asyncData) {
+        err=asyncErr;
+        data=asyncData;
+        done=true;
+      });
+      deasync.loopWhile(function(){return !done;});
 
-                    if (exifFileCounter === 0 && allFilesRead) {
-                        onResults(resultArray, opt);
-                    }
-                    return;
-                }
-                if (imageDate != null) {
-                    date = imageDate.replace(/\ /g, ':');
-                    dateArr = date.split(':');
-                    if (dateArr.length > 5) {
-                        folder = destFolder + path.sep + dateArr[0] + path.sep + dateArr[1];
-                        newFileName = getNewFilenameWDateWOExt(dateArr[0], dateArr[1], dateArr[2], dateArr[3], dateArr[4], dateArr[5], fileExt, false);
-                        copyOrMoveFile(fullSrcFileName, fileStats, folder, newFileName, fileExt, opt);
-                        return;
-                    } else {
-                        //log(opt, "Error parsing date info. File: " + srcFileName);
-                        useModifyDate(fullSrcFileName, srcFileName, fileStats, fileExt, destFolder, opt, false);
-                        return;
-                    }
-                } else {
-                    //log(opt, "Error getting date from Exif info. File: " + srcFileName);
-                    useModifyDate(fullSrcFileName, srcFileName, fileStats, fileExt, destFolder, opt, false);
-                    return;
-                }
+      var date, dateArr, newFileName, folder, imageDate, filepath, ref, ref1, make, model, obj;
+      exifFileCounter--;
+      if (!err) {
+          imageDate = ((ref = data.exif) != null ? ref.DateTimeOriginal : void 0) || ((ref1 = data.image) != null ? ref1.ModifyDate : void 0);
+          if (opt['report'] || opt['j']) {
+              filepath = fullSrcFileName.substring(0, fullSrcFileName.length - srcFileName.length);
+              ref1 = data.image;
+              make = ((ref1 != null && ref1.Make != null) ? (NAME_SEPA + ref1.Make) : UNKNOWN);
+              model = ((ref1 != null && ref1.Model != null) ? (NAME_SEPA + ref1.Model) : UNKNOWN);
+              //log(opt, "pushing a picture: " + srcFileName + " model: " + model);
+              obj = {name:srcFileName, path:filepath, ext:fileExt.toUpperCase(), make:make.trim(), model:model.trim(), size:fileStats["size"], date:imageDate};
+              resultArray.push(obj);
+              //console.log(resultArray);
+
+              if (exifFileCounter === 0 && allFilesRead) {
+                  onResults(resultArray, opt);
+              }
+              return;
+          }
+          if (imageDate != null) {
+              date = imageDate.replace(/\ /g, ':');
+              dateArr = date.split(':');
+              if (dateArr.length > 5) {
+                  folder = destFolder + path.sep + dateArr[0] + path.sep + dateArr[1];
+                  newFileName = getNewFilenameWDateWOExt(dateArr[0], dateArr[1], dateArr[2], dateArr[3], dateArr[4], dateArr[5], fileExt, false);
+                  copyOrMoveFile(fullSrcFileName, fileStats, folder, newFileName, fileExt, opt);
+                  return;
+              } else {
+                  //log(opt, "Error parsing date info. File: " + srcFileName);
+                  useModifyDate(fullSrcFileName, srcFileName, fileStats, fileExt, destFolder, opt, false);
+                  return;
+              }
             } else {
-                //log(opt, "Error obtaining Exif info. File: " + err.message);
+                //log(opt, "Error getting date from Exif info. File: " + srcFileName);
                 useModifyDate(fullSrcFileName, srcFileName, fileStats, fileExt, destFolder, opt, false);
                 return;
             }
-        });
+        } else {
+            //log(opt, "Error obtaining Exif info. File: " + err.message);
+            useModifyDate(fullSrcFileName, srcFileName, fileStats, fileExt, destFolder, opt, false);
+            return;
+        }
     };
 
     copyOrMoveFile = function (fullSrcFileName, fileStats, destFolder, newFileName, fileExt, opt) {
@@ -246,7 +255,7 @@
 			fs.copySync(currentFile, fullDestName);
 		}
     }
-    
+
     convert2Digits = function (aNum) {
         if (aNum < 10) {
             return '0' + aNum;
@@ -255,7 +264,7 @@
     };
 
     /*
-      tally the info 
+      tally the info
       1. video files will be categorized by its extension name
       2. pictures without EXIF info will be cataloged as UNKNOWN
       3. all others should be cataloged by it's camera model name
@@ -377,7 +386,7 @@
                 return console.log("Error writing to file: " + err);
             }
             console.log("The json file has been written to " + outFile);
-        }); 
+        });
     }
 
     log = function (opt, msg) {
