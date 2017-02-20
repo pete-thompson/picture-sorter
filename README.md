@@ -37,8 +37,8 @@ $ tree /path/to/destination/folder
 │   │    ├── 2006-07-12-15-30-21.jpg
 │   │    └── 2006-07-12-15-31-09.jpg
 │   └── 11
-│        ├── 
+│        ├──
 ...
 ```
 ## Disclaimer
-**WARNING**: Use this tool at your own discretion and total responsability, as this app can **wipe out** your whole history of pictures. You've been warned, don't cry later.
+**WARNING**: Use this tool at your own discretion and total responsibility, as this app can **wipe out** your whole history of pictures. You've been warned, don't cry later.
