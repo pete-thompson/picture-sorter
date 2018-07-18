@@ -235,7 +235,7 @@
 			newFileName = srcFileName.substring(0, srcFileName.length - fileExt.length);
 		}
 		else {
-			newFileName = getNewFilenameWDateWOExt(year, month, day, hours, minutes, seconds, fileExt, true);
+			newFileName = getNewFilenameWDateWOExt(year, month, day, hours, minutes, seconds, fileExt, false);
 		}
 
 		fullDestFolder = destFolder + path.sep + year + path.sep + month;
