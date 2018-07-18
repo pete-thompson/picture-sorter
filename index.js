@@ -44,7 +44,7 @@
         //console.log("---results count: " + results.length);
         for (i = 0, len = files.length; i < len; i++) {
             file = files[i];
-            currentFile = src + path.sep + file;
+            currentFile = src + (src.endsWith(path.sep)? '' : path.sep) + file;
             fileStats = fs.statSync(currentFile);
             if (fileStats.isFile() && !stringStartsWith(file, ".")) {
                 //log(opt, "processing file: " + currentFile);
