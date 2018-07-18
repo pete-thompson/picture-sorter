@@ -17,6 +17,7 @@
     path = require('path');
     deasync = require('deasync') ;
     ExifImage = require('exif').ExifImage;
+    md5File = require('md5-file');
 
 	stringStartsWith = function (string, prefix) {
 		return string.slice(0, prefix.length) == prefix;
@@ -159,7 +160,7 @@
 		}
 
         // check if the dest file name is a valid one
-        var fullDestNameWOExt = findNextGoodName(fileStats["size"], newFileName, destFolder, 0, fileExt, opt);
+        var fullDestNameWOExt = findNextGoodName(fileStats["size"], newFileName, destFolder, 0, fileExt, null, opt);
         if (typeof fullDestNameWOExt == 'undefined') {
             log(opt, "File already exists, skipped file: " + fullSrcFileName);
             return;
@@ -180,7 +181,7 @@
         }
     };
 
-    findNextGoodName = function(srcFileSize, fileName, destFolder, fileIndex, fileExt, opt) {
+    findNextGoodName = function(srcFileSize, fileName, destFolder, fileIndex, fileExt, srcFileMd5, opt) {
         var justFileName = fileName + (fileIndex == 0 ? "" : (FILE_INDEX_SEPA+fileIndex));
         var fullDestName = destFolder + path.sep + justFileName + fileExt;
         var destFileStats;
@@ -188,14 +189,19 @@
             destFileStats = fs.statSync(fullDestName);
             if (destFileStats) {
                 if (destFileStats["size"] == srcFileSize) {
-                    // file exists already and it's the same size
+                    // file exists already and it's the same size - check if md5 matches
                     //log(opt, "File same size, skips file: " + fullDestName);
-                    return void 0;
+                    if (srcFileMd5===null) {
+                        srcFileMd5 = md5File(fileName);
+                        log(opt, 'Calculated source file MD5 as ' + srcFileMd5 + ' so we can compare');
+                    }
+                    var destFileMd5 = md5File(fullDestName);
+                    if (destFileMd5 === srcFileMd5) {
+                        return void 0;
+                    }
                 }
-                else { // size not equal, need to move or copy this file with a good index appended
-                    fileIndex++;
-                    return findNextGoodName(srcFileSize, fileName, destFolder, fileIndex, fileExt);
-                }
+                fileIndex++;
+                return findNextGoodName(srcFileSize, fileName, destFolder, fileIndex, fileExt, srcFileMd5, opt);
             }
             else {
                 return justFileName;
@@ -244,7 +250,7 @@
     backupFile = function(currentFile, file, fileStats, fileExt, dst, opt) {
         var justName = file.substring(0, file.length - fileExt.length);
         // check if the dest file name exists already
-        var fullDestName = findNextGoodName(fileStats["size"], justName, destFolder, 0, fileExt, opt)
+        var fullDestName = findNextGoodName(fileStats["size"], justName, destFolder, 0, fileExt, null, opt)
         if (typeof fullDestName == 'undefined') {
             log(opt, "File already exists, skipped file: " + currentFile);
             return void 0;
