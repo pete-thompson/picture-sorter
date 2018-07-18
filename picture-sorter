@@ -18,7 +18,7 @@ if (!(src && (dst || reportOnly || metaFile))) {
   console.log("       This command line does not change anything (hence no need for the -d argument,) it only reports the picture count by camera models and extension names.")
   console.log("");
   console.log("   Ex 3: picture-sorter -j meta.json -s ~/tmp");
-  console.log("       This command line does not change anything (hence no need for the -d argument, but requires -j file arguments) it writes all the picture/video file info to a file.")  
+  console.log("       This command line does not change anything (hence no need for the -d argument, but requires -j file arguments) it writes all the picture/video file info to a file.")
   console.log("");
   console.log("Options:");
   console.log("");
@@ -30,6 +30,7 @@ if (!(src && (dst || reportOnly || metaFile))) {
   console.log("  --dryrun - No actual operations will take place.");
   console.log("  --backup - copy files from Source to Destionation.");
   console.log("  --report - report picture count by camera models and extension names");
+  console.log("  --delDupes - delete any files detected to be duplicates");
   console.log("");
   return false;
 }

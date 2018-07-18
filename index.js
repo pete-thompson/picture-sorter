@@ -160,48 +160,71 @@
 		}
 
         // check if the dest file name is a valid one
-        var fullDestNameWOExt = findNextGoodName(fileStats["size"], newFileName, destFolder, 0, fileExt, null, opt);
+        var fullDestNameWOExt = findNextGoodName(fileStats["size"], newFileName, destFolder, 0, fileExt, fullSrcFileName, null, opt);
         if (typeof fullDestNameWOExt == 'undefined') {
-            log(opt, "File already exists, skipped file: " + fullSrcFileName);
+            var delDupes = false;
+            if (opt['delDupes'] != null) { delDupes = true}
+            if (delDupes) {
+                log(opt, "Deleting duplicate file " + fullSrcFileName);
+                if (!isDryRun) {
+                  fs.unlinkSync(fullSrcFileName);
+                }
+            } else {
+                log(opt, "File already exists, skipped file: " + fullSrcFileName);
+            }
             return;
         }
-        var fullDestName = destFolder + path.sep + fullDestNameWOExt + fileExt;
-        if (move) {
-            log(opt, "Moving file " + fullSrcFileName + " ---> " + fullDestName);
-            //fs.copySync(fullSrcFileName, fullDestName);
-            //return fs.removeSync(fullSrcFileName);
-			if (!isDryRun) {
-				fs.renameSync(fullSrcFileName, fullDestName);
-			}
+        if (fullDestNameWOExt==='') {
+          log(opt, "File not moved, already in the correct place " + fullSrcFileName)
         } else {
-            log(opt, "Copying file " + fullSrcFileName + " ---> " + fullDestName);
-			if (!isDryRun) {
-				fs.copySync(fullSrcFileName, fullDestName);
-			}
+            var fullDestName = destFolder + path.sep + fullDestNameWOExt + fileExt;
+            if (move) {
+                log(opt, "Moving file " + fullSrcFileName + " ---> " + fullDestName);
+                //fs.copySync(fullSrcFileName, fullDestName);
+                //return fs.removeSync(fullSrcFileName);
+    			if (!isDryRun) {
+    				fs.renameSync(fullSrcFileName, fullDestName);
+    			}
+            } else {
+                log(opt, "Copying file " + fullSrcFileName + " ---> " + fullDestName);
+    			if (!isDryRun) {
+    				fs.copySync(fullSrcFileName, fullDestName);
+    			}
+            }
         }
     };
 
-    findNextGoodName = function(srcFileSize, fileName, destFolder, fileIndex, fileExt, srcFileMd5, opt) {
+    findNextGoodName = function(srcFileSize, fileName, destFolder, fileIndex, fileExt, fullSrcFileName, srcFileMd5, opt) {
         var justFileName = fileName + (fileIndex == 0 ? "" : (FILE_INDEX_SEPA+fileIndex));
         var fullDestName = destFolder + path.sep + justFileName + fileExt;
         var destFileStats;
+        if (fullDestName == fullSrcFileName) {
+          // We're attempting to move to the same place, so return blank to indicate no move
+          return ""
+        }
         try {
             destFileStats = fs.statSync(fullDestName);
             if (destFileStats) {
                 if (destFileStats["size"] == srcFileSize) {
                     // file exists already and it's the same size - check if md5 matches
                     //log(opt, "File same size, skips file: " + fullDestName);
-                    if (srcFileMd5===null) {
-                        srcFileMd5 = md5File(fileName);
-                        log(opt, 'Calculated source file MD5 as ' + srcFileMd5 + ' so we can compare');
+                    try {
+                        if (srcFileMd5===null) {
+                            srcFileMd5 = md5File.sync(fullSrcFileName);
+                        }
+                        var destFileMd5 = md5File.sync(fullDestName);
+                        if (destFileMd5 === srcFileMd5) {
+                            return void 0;
+                        }
                     }
-                    var destFileMd5 = md5File(fullDestName);
-                    if (destFileMd5 === srcFileMd5) {
-                        return void 0;
+                    catch (ex) {
+                      // Something went wrong calculating md5 - assume the files are the same to match old functionality
+                      log(opt, 'exception calculating md5, assuming that files are duplicates: ' + ex.message)
+                      return void 0;
                     }
                 }
                 fileIndex++;
-                return findNextGoodName(srcFileSize, fileName, destFolder, fileIndex, fileExt, srcFileMd5, opt);
+                return findNextGoodName(srcFileSize, fileName, destFolder, fileIndex, fileExt, fullSrcFileName, srcFileMd5, opt);
             }
             else {
                 return justFileName;
@@ -250,7 +273,7 @@
     backupFile = function(currentFile, file, fileStats, fileExt, dst, opt) {
         var justName = file.substring(0, file.length - fileExt.length);
         // check if the dest file name exists already
-        var fullDestName = findNextGoodName(fileStats["size"], justName, destFolder, 0, fileExt, null, opt)
+        var fullDestName = findNextGoodName(fileStats["size"], justName, destFolder, 0, fileExt, fullSrcFileName, null, opt)
         if (typeof fullDestName == 'undefined') {
             log(opt, "File already exists, skipped file: " + currentFile);
             return void 0;
